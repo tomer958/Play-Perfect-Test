@@ -1,10 +1,21 @@
-  {{
-    config(
-        materialized='table'
-    )
- }}
+-- This table is refreshed daily after the daily_player model is completed using a cron job: 0 0 * * * (at midnight every day)
 
-WITH player_revenue AS (
+{{ config(
+    materialized='incremental',
+    unique_key=['media_source', 'install_country', 'install_date', 'cohort_period'],
+    partition_by={
+        "field": "install_date",
+        "data_type": "date"
+    },
+    incremental_strategy='merge'
+) }}
+
+WITH max_date_utc AS (
+  -- Retrieve the max date_utc from the marketing_roas table to avoid using subqueries in JOINs
+  SELECT MAX(date_utc) AS max_date
+  FROM {{ ref('daily_player') }}
+),
+player_revenue AS (
  -- Aggregating player revenue over time (cumulative)
  SELECT
    i.player_id,
@@ -13,9 +24,11 @@ WITH player_revenue AS (
    i.media_source,
    i.install_country,
    COALESCE(SUM(p.revenue) OVER (PARTITION BY i.player_id ORDER BY p.date_utc ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW), 0) AS cumulative_revenue
- FROM play-pefect-test.dbt_tomer.installs_attribution i
- LEFT JOIN play-pefect-test.dbt_tomer.daily_player p
+  from {{ source('dbt_tomer', 'installs_attribution') }} i
+  left join {{ ref('daily_player') }} p
    ON i.player_id = p.player_id
+  where p.date_utc >= (SELECT max_date FROM max_date_utc)  -- Now using the value from max_install_date CTE
+
 ),
 cohort_revenue AS (
  -- Calculate cohort cumulative revenue for D7, D14, D30, D90 periods
@@ -31,10 +44,10 @@ cohort_revenue AS (
 marketing_spend AS (
  -- Aggregate marketing spend per media source and country
  SELECT
-   ms.media_source,
-   ms.country AS install_country,
-   SUM(ms.spend) AS total_spend
- FROM play-pefect-test.dbt_tomer.marketing_spend ms
+   media_source,
+   country AS install_country,
+   SUM(spend) AS total_spend
+ FROM {{ source('dbt_tomer', 'marketing_spend') }} 
  GROUP BY 1, 2
 ),
 final_roas AS (
