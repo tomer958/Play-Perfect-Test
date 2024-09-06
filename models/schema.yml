@@ -1,0 +1,6 @@
+sources:
+  - name: dbt_tomer
+    database: play-pefect-test  # Your BigQuery project ID
+    schema: dbt_tomer  # Your dataset name
+    tables:
+      - name: events
