@@ -21,7 +21,6 @@ The project uses the following source tables from the BigQuery dataset `dbt_tome
 ### 1. `fct_games`
 - **Description**: This table summarizes each unique match of a unique player. It gathers all event data such as match join time, finish time, rewards, and room details for each player.
 - **Refresh Frequency**: Hourly
-- **Incremental Strategy**: Inserts only new data (by checking `timestamp_utc` for recent records).
   
 ### 2. `daily_player`
 - **Description**: This table summarizes a player's daily activity, including revenue, matches played, rewards won, and more.
