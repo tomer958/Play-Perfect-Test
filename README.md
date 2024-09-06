@@ -5,8 +5,8 @@ This project is designed to handle game event analytics and marketing ROAS (Retu
 
 ## Tables
 This project builds the following tables:
-1. **fct_games**: Summary everything thats happened to the player in a specific match.
-2. **daily_player**: Summary of all matching purchases activity of a uniqueplayer in a unique active day.
+1. **fct_games**: Summary of everything that's happened to the player in a specific match.
+2. **daily_player**: Summary of all matching purchases activity of a unique player in a unique active day.
 3. **fct_rooms**: Summarizing an entire room.
 4. **marketing_roas**: Summarizing data_source,country and install date and their roas.
 
@@ -31,8 +31,8 @@ The project uses the following source tables from the BigQuery dataset `dbt_tome
 - **Refresh Frequency**: Hourly
 
 ### 4. `marketing_roas`
-- **Description**: This table calculates the Return on Ad Spend (ROAS) for different cohort periods (D7, D14, D30, D90) based on player revenue and marketing spend. It breaks down the data by `media_source`, `install_country`, and `install_date`, empowering the marketing team to optimize ad spend by revealing which campaigns and channels yield the highest ROAS over different time periods.
+- **Description**: This table calculates the Return on Ad Spend (ROAS) for different cohort periods (D7, D14, D30, D90) based on player revenue and marketing spend. It breaks down the data by `media_source`, `install_country`, and `install_date`, empowering the marketing team to optimize ad spend by revealing which campaigns and channels yield the highest ROAS over different periods.
 - **Refresh Frequency**: Daily
 
 ## Testing
-We use dbt's built-in testing framework.(schema.yml)
+Appears in schema.yml
