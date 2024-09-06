@@ -1,20 +1,20 @@
 # DBT Project: Game Analytics and Marketing ROAS Dashboard
 
 ## Project Overview
-This project is designed to handle game event analytics and marketing ROAS (Return on Ad Spend) calculations for a game application. The project builds three major fact tables to summarize players' activity, room events, and marketing spend, allowing the analytics team to create dashboards for player behavior analysis and marketing effectiveness.
+This project is designed to handle game event analytics and marketing ROAS (Return on Ad Spend) calculations for a game application. By consolidating player behavior and marketing performance into comprehensive fact tables, this project enables the analytics and marketing teams to make data-driven decisions. These insights can help improve game engagement, optimize ad spend, and enhance player retention. The project builds three major fact tables to summarize players' activity, room events, and games, allowing the analytics team to create dashboards for player behavior analysis and marketing effectiveness.
 
 ## Tables
 This project builds the following tables:
-1. **fct_games**: Summarizes the details of a player’s match in the game.
-2. **daily_player**: Summarizes a player's daily activity.
-3. **fct_rooms**: Summarizes the events related to rooms in the game.
-4. **marketing_roas**: Calculates the ROAS based on player revenue and marketing spend, segmented by various cohort periods.
+1. **fct_games**: Summary everything thats happened to the player in a specific match.
+2. **daily_player**: Summary of all matching purchases activity of a uniqueplayer in a unique active day.
+3. **fct_rooms**: Summarizing an entire room.
+4. **marketing_roas**: Summarizing data_source,country and install date and their roas.
 
 ## Data Sources
 The project uses the following source tables from the BigQuery dataset `dbt_tomer`:
 - **events**: Contains all time-series game events for each player, partitioned by `date_utc` and clustered by `event_name`.
-- **installs_attribution**: Contains data related to player installations, media source, and country.
-- **marketing_spend**: Tracks the marketing spend by media source and country.
+- **installs_attribution**: Contains data related to player installations, including media source and country, which allows attribution of player installs to specific marketing channels..
+- **marketing_spend**: Tracks the marketing spend by media source and country, enabling marketing teams to monitor the effectiveness of ad campaigns.
 
 
 ## Table Details
@@ -31,6 +31,8 @@ The project uses the following source tables from the BigQuery dataset `dbt_tome
 - **Refresh Frequency**: Hourly
 
 ### 4. `marketing_roas`
-- **Description**: This table calculates the Return on Ad Spend (ROAS) for different cohort periods (D7, D14, D30, D90) based on player revenue and marketing spend. It breaks down the data by `media_source`, `install_country`, and `install_date`.
+- **Description**: This table calculates the Return on Ad Spend (ROAS) for different cohort periods (D7, D14, D30, D90) based on player revenue and marketing spend. It breaks down the data by `media_source`, `install_country`, and `install_date`, empowering the marketing team to optimize ad spend by revealing which campaigns and channels yield the highest ROAS over different time periods.
 - **Refresh Frequency**: Daily
 
+## Testing
+We use dbt's built-in testing framework.(schema.yml)
