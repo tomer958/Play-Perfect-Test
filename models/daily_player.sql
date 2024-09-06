@@ -40,9 +40,8 @@ balance_start as (
     player_id,
     balance_before,
     RANK() OVER (PARTITION BY player_id, date_utc ORDER BY timestamp_utc ASC) AS rank
-from {{ source('dbt_tomer', 'events') }}
-  where event_name='tournamentJoined'
-  {{ incremental_filter('date_utc') }}
+from {{ ref('event_tournamentJoined') }}
+  {{ incremental_filter('date_utc', 'date_utc') }}
   QUALIFY rank=1
 ),
 balance_end AS (
@@ -52,8 +51,7 @@ balance_end AS (
     player_id,
     balance_before AS balance_day_end,
     RANK() OVER (PARTITION BY player_id, date_utc ORDER BY timestamp_utc DESC) AS rank
-from {{ source('dbt_tomer', 'events') }}
-  WHERE event_name='tournamentFinished'
+from {{ ref('event_tournamentFinished') }}
   QUALIFY rank=1
 ),
 match_played AS (
@@ -62,8 +60,7 @@ match_played AS (
     date_utc,
     player_id,
     COUNT(*) AS matches_played
-from {{ source('dbt_tomer', 'events') }}
-  WHERE event_name='tournamentJoined'
+from {{ ref('event_tournamentJoined') }}
   GROUP BY 1, 2
 ),
 match_duration AS (
@@ -72,8 +69,7 @@ match_duration AS (
     date_utc,
     player_id,
     SUM(COALESCE(play_duration, 0)) AS total_matches_duration
-from {{ source('dbt_tomer', 'events') }}
-  WHERE event_name='tournamentFinished'
+from {{ ref('event_tournamentFinished') }}
   GROUP BY 1, 2
 ),
 match_summary AS (
@@ -96,8 +92,7 @@ match_reward AS (
     player_id,
     COUNT(CASE WHEN reward IS NOT NULL OR coins_claimed IS NOT NULL THEN 1 ELSE 0 END) AS matches_won_reward,
     COUNT(*) AS matches_claimed
-from {{ source('dbt_tomer', 'events') }}
-  WHERE event_name='tournamentRewardClaimed'
+from {{ ref('event_tournamentRewardClaimed') }}
   GROUP BY 1, 2
 ),
 coins_summary AS (
@@ -117,8 +112,7 @@ purchases AS (
     player_id,
     SUM(price_usd) AS revenue,
     SUM(coins_claimed) AS coins_source_purchases
-from {{ source('dbt_tomer', 'events') }}
-  WHERE event_name='purchase'
+from {{ ref('event_purchase') }}
   GROUP BY 1, 2
 ),
 event_data AS (
@@ -137,8 +131,7 @@ event_data AS (
     ROW_NUMBER() OVER (PARTITION BY player_id, date_utc ORDER BY date_utc) AS event_order,
     LAG(CASE WHEN position = 0 THEN 1 ELSE 0 END, 1, 0) OVER (PARTITION BY player_id, date_utc ORDER BY date_utc) AS previous_is_win,
     LAG(CASE WHEN COALESCE(reward, 0) = 0 THEN 1 ELSE 0 END, 1, 0) OVER (PARTITION BY player_id, date_utc ORDER BY date_utc) AS previous_is_loss
-from {{ source('dbt_tomer', 'events') }}
-  WHERE event_name = 'tournamentRoomClosed'
+from {{ ref('event_tournamentRoomClosed') }}
 ),
 streak_grouping AS (
   -- Group win/loss streaks for each player on each date

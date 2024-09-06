@@ -15,11 +15,9 @@ with room_tournament_details as (
     room_id,
     tournament_id,
     entry_fee,
-    players_capacity,
-    timestamp_utc as joined_time
-  from {{ source('dbt_tomer', 'events') }}
-  where event_name = 'tournamentJoined'
-  {{ incremental_filter('timestamp_utc') }}
+    players_capacity
+  from {{ ref('event_tournamentJoined') }}
+  {{ incremental_filter('timestamp_utc', 'room_open_time') }}
 )
 ,
 --get the time when the room was opened and total coins spent (entry fees) by players
@@ -29,8 +27,7 @@ tournament_id,
     room_id,
    min(timestamp_utc) as room_open_time,
    sum(coalesce(entry_fee,0)) as total_coins_sink
-  from {{ source('dbt_tomer', 'events') }}
-   where event_name='tournamentJoined'
+from {{ ref('event_tournamentJoined') }}
 group by 1,2
 )
 ,
@@ -42,8 +39,7 @@ tournament_id,
     room_id,
    max(timestamp_utc) as room_close_time,
    sum(coalesce(reward,0)) as total_coins_rewards
-  from {{ source('dbt_tomer', 'events') }}
-   where event_name='tournamentRoomClosed'
+from {{ ref('event_tournamentRoomClosed') }}
    group by 1,2
 ),
 --get average play duration and the number of active players during the match
@@ -53,9 +49,7 @@ tournament_id,
     room_id,
    players_active_in_toom,
    avg(coalesce(play_duration,0)) as total_matches_duration,
-  from {{ source('dbt_tomer', 'events') }}
- WHERE
-event_name='tournamentFinished'
+from {{ ref('event_tournamentFinished') }}
 group by 1,2,3
 )
 

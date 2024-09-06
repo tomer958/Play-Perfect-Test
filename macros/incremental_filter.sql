@@ -1,8 +1,5 @@
-{% macro incremental_filter(date_column) %}
+{% macro incremental_filter(timestamp_field, comparison_field) %}
   {% if is_incremental() %}
-    AND {{ date_column }} >= (
-      SELECT MAX({{ date_column }})
-      FROM {{ this }}
-    )
+    where {{ timestamp_field }} > (select max({{ comparison_field }}) from {{ this }})
   {% endif %}
 {% endmacro %}
