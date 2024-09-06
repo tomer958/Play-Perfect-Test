@@ -1,53 +1,63 @@
-  {{
-    config(
-        materialized='table'
-    )
- }}
+-- This table is refreshed hourly using a cron job: 0 * * * * (every hour)
 
- with room_tournament_details as (
- select
-   room_id,
-   tournament_id,
-   entry_fee,
-   players_capacity,
- timestamp_utc as joined_time,
-from play-pefect-test.dbt_tomer.events
-where event_name='tournamentJoined'
+{{ config(
+    materialized='incremental',
+    unique_key=['room_id', 'tournament_id'],
+    partition_by={
+        "field": "room_open_time",
+        "data_type": "timestamp"
+    },
+    incremental_strategy='merge'
+) }}
+--gather basic details about each room and tournament when players join
+with room_tournament_details as (
+  select
+    room_id,
+    tournament_id,
+    entry_fee,
+    players_capacity,
+    timestamp_utc as joined_time
+  from {{ source('dbt_tomer', 'events') }}
+  where event_name = 'tournamentJoined'
+  {{ incremental_filter('timestamp_utc') }}
 )
 ,
+--get the time when the room was opened and total coins spent (entry fees) by players
 open_time as (
 select
 tournament_id,
     room_id,
    min(timestamp_utc) as room_open_time,
    sum(coalesce(entry_fee,0)) as total_coins_sink
-from play-pefect-test.dbt_tomer.events
+  from {{ source('dbt_tomer', 'events') }}
    where event_name='tournamentJoined'
 group by 1,2
 )
 ,
+
+--get the time when the room was closed, total rewards distributed, and the number of players at close
 close_time as (
 select
 tournament_id,
     room_id,
    max(timestamp_utc) as room_close_time,
    sum(coalesce(reward,0)) as total_coins_rewards
-from play-pefect-test.dbt_tomer.events
+  from {{ source('dbt_tomer', 'events') }}
    where event_name='tournamentRoomClosed'
    group by 1,2
 ),
+--get average play duration and the number of active players during the match
 match_duration as (
  SELECT
 tournament_id,
     room_id,
    players_active_in_toom,
    avg(coalesce(play_duration,0)) as total_matches_duration,
-from play-pefect-test.dbt_tomer.events
+  from {{ source('dbt_tomer', 'events') }}
  WHERE
 event_name='tournamentFinished'
 group by 1,2,3
 )
-
 
 select
  room_tournament_details.room_id,

@@ -1,6 +1,9 @@
 sources:
-  - name: dbt_tomer
-    database: play-pefect-test  # Your BigQuery project ID
-    schema: dbt_tomer  # Your dataset name
+  - name: dbt_tomer  
+    database: play-pefect-test 
+    schema: dbt_tomer
     tables:
-      - name: events
+      - name: events 
+      - name: installs_attribution 
+      - name: marketing_spend 
+      

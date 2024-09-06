@@ -1,23 +1,31 @@
-  {{
-    config(
-        materialized='table'
-    )
- }}
+-- This table is refreshed hourly using a cron job: 0 * * * * (every hour)
 
-  with joined_time_table as (
- SELECT
-   date_utc,
-   player_id,
-   room_id,
-   tournament_id,
-   balance_before,
-   entry_fee,
-   players_capacity,
- timestamp_utc as joined_time
-from play-pefect-test.dbt_tomer.events
- WHERE
-event_name='tournamentJoined'
+{{ config(
+    materialized='incremental',
+    unique_key=['player_id', 'room_id', 'tournament_id'],
+    partition_by={
+        "field": "date_utc",
+        "data_type": "date"
+    },
+    incremental_strategy='merge'
+) }}
+
+--Get the joined time of players in a tournament
+with joined_time_table as (
+  select
+    date_utc,
+    player_id,
+    room_id,
+    tournament_id,
+    balance_before,
+    entry_fee,
+    players_capacity,
+    timestamp_utc AS joined_time
+  from {{ source('dbt_tomer', 'events') }}
+  where event_name = 'tournamentJoined'
+{{ incremental_filter('timestamp_utc') }} -- Incremental filter to process only new data
 )
+--Get the submission time for each player in the tournament
 ,submit_time_table as (
    SELECT
    player_id,
@@ -28,10 +36,11 @@ event_name='tournamentJoined'
    players_active_in_toom as actual_players_in_room,
    score,
  timestamp_utc  as submit_time
-from play-pefect-test.dbt_tomer.events
- WHERE
+from {{ source('dbt_tomer', 'events') }}
+ where
 event_name='tournamentFinished'
 )
+--Get the room closing time and final balance for each player
 ,room_close_time_table as (
    SELECT
    player_id,
@@ -42,21 +51,19 @@ event_name='tournamentFinished'
    position,
    score,
  timestamp_utc  as room_close_time
-from play-pefect-test.dbt_tomer.events
- WHERE
-event_name='tournamentRoomClosed'
+from {{ source('dbt_tomer', 'events') }}
+ where event_name='tournamentRoomClosed'
 )
 
-
+--Get the reward claim time for players who claimed their reward
 ,room_reward_time_table as (
-   SELECT
+   select
    player_id,
    room_id,
    tournament_id,
  timestamp_utc  as claim_time
-from play-pefect-test.dbt_tomer.events
- WHERE
-event_name='tournamentRewardClaimed'
+from {{ source('dbt_tomer', 'events') }}
+ where event_name='tournamentRewardClaimed'
 )
 
 select

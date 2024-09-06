@@ -1,25 +1,31 @@
-  {{
-    config(
-        materialized='table'
-    )
- }}
+-- This table is refreshed daily using a cron job: 0 0 * * * (at midnight every day)
 
- WITH player_first_appearance AS (
+{{ config(
+    materialized='incremental',
+    unique_key=['player_id', 'date_utc'],
+    partition_by={
+        "field": "date_utc",
+        "data_type": "date"
+    },
+    incremental_strategy='merge'
+) }}
+
+ with player_first_appearance as (
   -- Get the first date a player appears in the dataset
-  SELECT 
+  select 
     player_id, 
     MIN(date_utc) AS first_appearance_date
-  FROM play-pefect-test.dbt_tomer.events
-  GROUP BY player_id
+from {{ source('dbt_tomer', 'events') }}
+  group by 1
 ),
-date_table AS (
+date_table as (
   -- Find the minimum and maximum dates in the dataset for generating all dates
-  SELECT 
+  select 
     MIN(date_utc) AS min_date, 
     MAX(date_utc) AS max_date
-  FROM play-pefect-test.dbt_tomer.events
+from {{ source('dbt_tomer', 'events') }}
 ),
-all_dates AS (
+all_dates as (
   -- Create a table of all dates for each player starting from their first appearance
   SELECT 
     player_id, 
@@ -27,15 +33,16 @@ all_dates AS (
   FROM player_first_appearance, 
        UNNEST(GENERATE_DATE_ARRAY(first_appearance_date, (SELECT max_date FROM date_table))) AS date_utc
 ),
-balance_start AS (
+balance_start as (
   -- Fetch the starting balance for each player on each date based on their first tournamentJoined event
   SELECT
     date_utc,
     player_id,
     balance_before,
     RANK() OVER (PARTITION BY player_id, date_utc ORDER BY timestamp_utc ASC) AS rank
-  FROM play-pefect-test.dbt_tomer.events
-  WHERE event_name='tournamentJoined'
+from {{ source('dbt_tomer', 'events') }}
+  where event_name='tournamentJoined'
+  {{ incremental_filter('date_utc') }}
   QUALIFY rank=1
 ),
 balance_end AS (
@@ -45,7 +52,7 @@ balance_end AS (
     player_id,
     balance_before AS balance_day_end,
     RANK() OVER (PARTITION BY player_id, date_utc ORDER BY timestamp_utc DESC) AS rank
-  FROM play-pefect-test.dbt_tomer.events
+from {{ source('dbt_tomer', 'events') }}
   WHERE event_name='tournamentFinished'
   QUALIFY rank=1
 ),
@@ -55,7 +62,7 @@ match_played AS (
     date_utc,
     player_id,
     COUNT(*) AS matches_played
-  FROM play-pefect-test.dbt_tomer.events
+from {{ source('dbt_tomer', 'events') }}
   WHERE event_name='tournamentJoined'
   GROUP BY 1, 2
 ),
@@ -65,7 +72,7 @@ match_duration AS (
     date_utc,
     player_id,
     SUM(COALESCE(play_duration, 0)) AS total_matches_duration
-  FROM play-pefect-test.dbt_tomer.events
+from {{ source('dbt_tomer', 'events') }}
   WHERE event_name='tournamentFinished'
   GROUP BY 1, 2
 ),
@@ -78,7 +85,7 @@ match_summary AS (
     AVG(COALESCE(score, 0)) AS avg_score,
     MAX(position) AS max_position,
     AVG(position) AS avg_position
-  FROM play-pefect-test.dbt_tomer.events
+from {{ source('dbt_tomer', 'events') }}
   WHERE event_name in('tournamentRoomClosed','tournamentRewardClaimed')
   GROUP BY 1, 2
 ),
@@ -89,7 +96,7 @@ match_reward AS (
     player_id,
     COUNT(CASE WHEN reward IS NOT NULL OR coins_claimed IS NOT NULL THEN 1 ELSE 0 END) AS matches_won_reward,
     COUNT(*) AS matches_claimed
-  FROM play-pefect-test.dbt_tomer.events
+from {{ source('dbt_tomer', 'events') }}
   WHERE event_name='tournamentRewardClaimed'
   GROUP BY 1, 2
 ),
@@ -100,7 +107,7 @@ coins_summary AS (
     player_id,
     SUM(CASE WHEN event_name = 'tournamentJoined' THEN entry_fee ELSE 0 END) AS coins_sink_tournaments,
     SUM(CASE WHEN event_name = 'tournamentRewardClaimed' THEN reward ELSE 0 END) AS coins_source_tournaments
-  FROM play-pefect-test.dbt_tomer.events
+from {{ source('dbt_tomer', 'events') }}
   GROUP BY 1, 2
 ),
 purchases AS (
@@ -110,7 +117,7 @@ purchases AS (
     player_id,
     SUM(price_usd) AS revenue,
     SUM(coins_claimed) AS coins_source_purchases
-  FROM play-pefect-test.dbt_tomer.events
+from {{ source('dbt_tomer', 'events') }}
   WHERE event_name='purchase'
   GROUP BY 1, 2
 ),
@@ -130,7 +137,7 @@ event_data AS (
     ROW_NUMBER() OVER (PARTITION BY player_id, date_utc ORDER BY date_utc) AS event_order,
     LAG(CASE WHEN position = 0 THEN 1 ELSE 0 END, 1, 0) OVER (PARTITION BY player_id, date_utc ORDER BY date_utc) AS previous_is_win,
     LAG(CASE WHEN COALESCE(reward, 0) = 0 THEN 1 ELSE 0 END, 1, 0) OVER (PARTITION BY player_id, date_utc ORDER BY date_utc) AS previous_is_loss
-  FROM play-pefect-test.dbt_tomer.events
+from {{ source('dbt_tomer', 'events') }}
   WHERE event_name = 'tournamentRoomClosed'
 ),
 streak_grouping AS (
