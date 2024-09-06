@@ -21,9 +21,9 @@ with joined_time_table as (
     entry_fee,
     players_capacity,
     timestamp_utc AS joined_time
-  from {{ source('dbt_tomer', 'events') }}
-  where event_name = 'tournamentJoined'
-{{ incremental_filter('timestamp_utc') }} -- Incremental filter to process only new data
+  from {{ ref('event_tournamentJoined') }}
+  {{ incremental_filter('timestamp_utc', 'joined_time') }}
+
 )
 --Get the submission time for each player in the tournament
 ,submit_time_table as (
@@ -36,9 +36,7 @@ with joined_time_table as (
    players_active_in_toom as actual_players_in_room,
    score,
  timestamp_utc  as submit_time
-from {{ source('dbt_tomer', 'events') }}
- where
-event_name='tournamentFinished'
+from {{ ref('event_tournamentFinished') }}
 )
 --Get the room closing time and final balance for each player
 ,room_close_time_table as (
@@ -51,8 +49,7 @@ event_name='tournamentFinished'
    position,
    score,
  timestamp_utc  as room_close_time
-from {{ source('dbt_tomer', 'events') }}
- where event_name='tournamentRoomClosed'
+from {{ ref('event_tournamentRoomClosed') }}
 )
 
 --Get the reward claim time for players who claimed their reward
@@ -62,8 +59,7 @@ from {{ source('dbt_tomer', 'events') }}
    room_id,
    tournament_id,
  timestamp_utc  as claim_time
-from {{ source('dbt_tomer', 'events') }}
- where event_name='tournamentRewardClaimed'
+from {{ ref('event_tournamentRewardClaimed') }}
 )
 
 select
