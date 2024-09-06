@@ -64,12 +64,12 @@ select
  case
    when timestamp_diff(close_time.room_close_time, open_time.room_open_time,minute)>45
    or match_duration.players_active_in_toom = room_tournament_details.players_capacity
-   then 'YES'
-   else 'NO'
+   then true
+   else false
  end as is_closed,
  case
-   when match_duration.players_active_in_toom = room_tournament_details.players_capacity then 'YES'
-   else 'NO'
+   when match_duration.players_active_in_toom = room_tournament_details.players_capacity then true
+   else false
  end as is_full
 from room_tournament_details
 left join open_time
