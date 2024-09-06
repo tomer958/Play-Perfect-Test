@@ -1,9 +1,131 @@
+version: 2
+
+# Define your sources
 sources:
   - name: dbt_tomer  
     database: play-pefect-test 
     schema: dbt_tomer
     tables:
       - name: events 
-      - name: installs_attribution 
-      - name: marketing_spend 
+        description: "Table containing all events related to the game."
+        columns:
+          - name: event_name
+            description: "Type of event (e.g., tournamentJoined, tournamentFinished)."
+            tests:
+              - not_null
+          - name: timestamp_utc
+            description: "exact time the event was sent"
+            tests:
+              - not_null
+      - name: installs_attribution
+        description: "Table that records attribution data for installs."
+        columns:
+          - name: player_id
+            description: "Unique identifier for each player."
+            tests:
+              - not_null
+              - unique
+          - name: install_date
+            description: "The date when the player installed the game."
+            tests:
+              - not_null
+      - name: marketing_spend
+        description: "Table that tracks marketing spend per media source and country."
+        columns:
+          - name: media_source
+            description: "Source of the marketing campaign."
+            tests:
+              - not_null
+          - name: spend
+            description: "The amount of money spent on marketing."
+            tests:
+              - not_null
 
+# Define models and tests
+models:
+  - name: fct_games
+    description: "Fact table that summary everything thats happened to the player in a specific match."
+    columns:
+      - name: player_id
+        description: "Unique identifier for each player."
+        tests:
+          - not_null
+      - name: room_id
+        description: "Unique identifier for the room in which the game took place."
+        tests:
+          - not_null
+      - name: tournament_id
+        description: "Unique identifier for the tournament."
+      - name: joined_time
+        description: "Timestamp when the player joined the game."
+      - name: balance_before
+        description: "Balance of the player before starting the game."
+      - name: submit_time
+        description: "The time when the player submitted their score in the tournament."
+      - name: room_close_time
+        description: "The time when the tournament room was closed."
+
+  - name: fct_rooms
+    description: "Fact table summarizing an entire room."
+    columns:
+      - name: room_id
+        description: "Unique identifier for the room."
+        tests:
+          - not_null
+      - name: tournament_id
+        description: "Unique identifier for the tournament."
+        tests:
+          - not_null
+      - name: room_open_time
+        description: "Timestamp for when the room was opened."
+      - name: room_close_time
+        description: "Timestamp for when the room was closed."
+      - name: total_coins_sink
+        description: "Total coins used in the room for entry fees."
+      - name: total_coins_rewards
+        description: "Total coins rewarded to players in the room."
+      - name: actual_players
+        description: "Number of players active in the room."
+      - name: is_closed
+        description: "Indicates whether the room is closed."
+
+  - name: daily_player
+    description: "Fact table that summary of all matching purchases activity of a uniqueplayer in a unique active day."
+    columns:
+      - name: player_id
+        description: "Unique identifier for each player."
+        tests:
+          - not_null
+      - name: date_utc
+        description: "UTC date for the player's activity."
+        tests:
+          - not_null
+      - name: balance_day_start
+        description: "Player's balance at the start of the day."
+      - name: balance_day_end
+        description: "Player's balance at the end of the day."
+
+  - name: marketing_roas
+    description: "Table that calculates Return on Advertising Spend (ROAS) by cohort period."
+    columns:
+      - name: media_source
+        description: "Source of the marketing campaign."
+        tests:
+          - not_null
+      - name: install_country
+        description: "Country where the installs occurred."
+        tests:
+          - not_null
+      - name: cohort_period
+        description: "The cohort period for ROAS calculation (D7, D14, D30, D90)."
+
+# Custom Tests for ROAS
+tests:
+  - name: custom_not_null_roas
+    description: "Test to check that ROAS is not null for media sources other than Organic."
+    columns:
+      - name: roas
+        description: "Return on Advertising Spend calculated as revenue/spend."
+        tests:
+          - not_null:
+              condition: "media_source != 'Organic'"
